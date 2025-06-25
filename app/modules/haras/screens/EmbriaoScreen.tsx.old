@@ -1,0 +1,863 @@
+import React, { useState, useEffect } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TextInput,
+  StatusBar,
+  Dimensions,
+  FlatList,
+} from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
+
+interface RegistroEmbriao {
+  id: string;
+  doadoraId: string;
+  garanhaoId: string;
+  dataColeta: string;
+  qualidadeEmbriao: 'grau1' | 'grau2' | 'grau3' | 'grau4';
+  statusEmbriao: 'congelado' | 'transferido' | 'descartado';
+  receptoraId?: string;
+  dataTransferencia?: string;
+  observacoes?: string;
+  numeroEmbrioes: number;
+  responsavel: string;
+}
+
+interface Animal {
+  id: string;
+  nome: string;
+  raca: string;
+  status: string;
+}
+
+interface EmbriaoScreenProps {
+  harasId: string;
+}
+
+const EmbriaoScreen: React.FC<EmbriaoScreenProps> = ({ harasId }) => {
+  const [embrioes, setEmbrioes] = useState<RegistroEmbriao[]>([]);
+  const [doadoras, setDoadoras] = useState<Animal[]>([]);
+  const [garanhoes, setGaranhoes] = useState<Animal[]>([]);
+  const [receptoras, setReceptoras] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedEmbriao, setSelectedEmbriao] = useState<RegistroEmbriao | null>(null);
+
+  const [formData, setFormData] = useState({
+    doadoraId: '',
+    garanhaoId: '',
+    dataColeta: new Date().toISOString().split('T')[0],
+    qualidadeEmbriao: 'grau1' as const,
+    numeroEmbrioes: 1,
+    observacoes: '',
+    responsavel: 'Veterinário'
+  });
+
+  const [transferData, setTransferData] = useState({
+    receptoraId: '',
+    dataTransferencia: new Date().toISOString().split('T')[0]
+  });
+
+  useEffect(() => {
+    loadData();
+  }, [harasId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Mock data para demonstração - substituir por chamadas reais da API
+      const mockEmbrioes: RegistroEmbriao[] = [
+        {
+          id: '1',
+          doadoraId: '1',
+          garanhaoId: '1',
+          dataColeta: '2024-01-15',
+          qualidadeEmbriao: 'grau1',
+          statusEmbriao: 'congelado',
+          numeroEmbrioes: 3,
+          responsavel: 'Dr. Veterinário',
+          observacoes: 'Excelente qualidade'
+        },
+        {
+          id: '2',
+          doadoraId: '2',
+          garanhaoId: '1',
+          dataColeta: '2024-01-10',
+          qualidadeEmbriao: 'grau2',
+          statusEmbriao: 'transferido',
+          receptoraId: '1',
+          dataTransferencia: '2024-01-20',
+          numeroEmbrioes: 2,
+          responsavel: 'Dr. Veterinário'
+        }
+      ];
+
+      const mockDoadoras: Animal[] = [
+        { id: '1', nome: 'Estrela da Manhã', raca: 'Quarto de Milha', status: 'ativa' },
+        { id: '2', nome: 'Lua Cheia', raca: 'Mangalarga', status: 'ativa' }
+      ];
+
+      const mockGaranhoes: Animal[] = [
+        { id: '1', nome: 'Trovão do Nordeste', raca: 'Quarto de Milha', status: 'ativo' },
+        { id: '2', nome: 'Relâmpago Dourado', raca: 'Mangalarga', status: 'ativo' }
+      ];
+
+      const mockReceptoras: Animal[] = [
+        { id: '1', nome: 'Receptora 01', raca: 'Cruzado', status: 'disponivel' },
+        { id: '2', nome: 'Receptora 02', raca: 'Cruzado', status: 'disponivel' }
+      ];
+
+      setEmbrioes(mockEmbrioes);
+      setDoadoras(mockDoadoras);
+      setGaranhoes(mockGaranhoes);
+      setReceptoras(mockReceptoras);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os dados');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleCreateEmbriao = async () => {
+    try {
+      if (!formData.doadoraId || !formData.garanhaoId) {
+        Alert.alert('Erro', 'Selecione a doadora e o garanhão');
+        return;
+      }
+
+      setLoading(true);
+      
+      // Aqui você integraria com a API real
+      const novoEmbriao: RegistroEmbriao = {
+        id: Date.now().toString(),
+        doadoraId: formData.doadoraId,
+        garanhaoId: formData.garanhaoId,
+        dataColeta: formData.dataColeta,
+        qualidadeEmbriao: formData.qualidadeEmbriao,
+        statusEmbriao: 'congelado',
+        numeroEmbrioes: formData.numeroEmbrioes,
+        responsavel: formData.responsavel,
+        observacoes: formData.observacoes
+      };
+
+      setEmbrioes([...embrioes, novoEmbriao]);
+      Alert.alert('Sucesso', 'Embrião registrado com sucesso');
+      setShowCreateModal(false);
+      resetForm();
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Erro ao registrar embrião');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransferEmbriao = async () => {
+    try {
+      if (!selectedEmbriao || !transferData.receptoraId) {
+        Alert.alert('Erro', 'Selecione a receptora para transferência');
+        return;
+      }
+
+      setLoading(true);
+      
+      // Aqui você integraria com a API real
+      const embriaoAtualizado = {
+        ...selectedEmbriao,
+        statusEmbriao: 'transferido' as const,
+        receptoraId: transferData.receptoraId,
+        dataTransferencia: transferData.dataTransferencia
+      };
+
+      setEmbrioes(embrioes.map(e => e.id === selectedEmbriao.id ? embriaoAtualizado : e));
+      Alert.alert('Sucesso', 'Embrião transferido com sucesso');
+      setShowTransferModal(false);
+      setSelectedEmbriao(null);
+      setTransferData({ receptoraId: '', dataTransferencia: new Date().toISOString().split('T')[0] });
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Erro ao transferir embrião');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      doadoraId: '',
+      garanhaoId: '',
+      dataColeta: new Date().toISOString().split('T')[0],
+      qualidadeEmbriao: 'grau1',
+      numeroEmbrioes: 1,
+      observacoes: '',
+      responsavel: 'Veterinário'
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'congelado': return Theme.colors.primary[500];
+      case 'transferido': return Theme.colors.success[500];
+      case 'descartado': return Theme.colors.error[500];
+      default: return Theme.colors.neutral[500];
+    }
+  };
+
+  const getQualidadeColor = (qualidade: string) => {
+    switch (qualidade) {
+      case 'grau1': return Theme.colors.success[500];
+      case 'grau2': return Theme.colors.warning[500];
+      case 'grau3': return Theme.colors.error[500];
+      case 'grau4': return Theme.colors.error[600];
+      default: return Theme.colors.neutral[500];
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const getDoadoraNome = (id: string) => {
+    return doadoras.find(d => d.id === id)?.nome || 'Desconhecida';
+  };
+
+  const getGaranhaoNome = (id: string) => {
+    return garanhoes.find(g => g.id === id)?.nome || 'Desconhecido';
+  };
+
+  const getReceptoraNome = (id: string) => {
+    return receptoras.find(r => r.id === id)?.nome || 'Desconhecida';
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Gestão de Embriões 🧬</Text>
+        <TouchableOpacity 
+          style={styles.addButton}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Feather name="plus" size={24} color={Theme.colors.primary[50]} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      >
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Carregando...</Text>
+          </View>
+        ) : (
+          <View style={styles.content}>
+            {/* Estatísticas */}
+            <View style={styles.statsContainer}>
+              <View style={[styles.statCard, { backgroundColor: Theme.colors.primary[50] }]}>
+                <Text style={styles.statNumber}>{embrioes.filter(e => e.statusEmbriao === 'congelado').length}</Text>
+                <Text style={styles.statLabel}>Congelados</Text>
+              </View>
+              <View style={[styles.statCard, { backgroundColor: Theme.colors.success[50] }]}>
+                <Text style={styles.statNumber}>{embrioes.filter(e => e.statusEmbriao === 'transferido').length}</Text>
+                <Text style={styles.statLabel}>Transferidos</Text>
+              </View>
+              <View style={[styles.statCard, { backgroundColor: Theme.colors.warning[50] }]}>
+                <Text style={styles.statNumber}>{embrioes.reduce((acc, e) => acc + e.numeroEmbrioes, 0)}</Text>
+                <Text style={styles.statLabel}>Total</Text>
+              </View>
+            </View>
+
+            {/* Lista de Embriões */}
+            {embrioes.map((embriao) => (
+              <View key={embriao.id} style={styles.embriaoCard}>
+                <View style={styles.embriaoContent}>
+                  <View style={styles.embriaoHeader}>
+                    <View style={styles.embriaoInfo}>
+                      <Text style={styles.embriaoId}>#{embriao.id.slice(-6).toUpperCase()}</Text>
+                      <Text style={styles.embriaoDate}>{formatDate(embriao.dataColeta)}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(embriao.statusEmbriao) }]}>
+                      <Text style={styles.statusText}>{embriao.statusEmbriao.toUpperCase()}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.parentInfo}>
+                    <View style={styles.parent}>
+                      <Text style={styles.parentLabel}>Doadora</Text>
+                      <Text style={styles.parentName}>{getDoadoraNome(embriao.doadoraId)}</Text>
+                    </View>
+                    <View style={styles.parent}>
+                      <Text style={styles.parentLabel}>Garanhão</Text>
+                      <Text style={styles.parentName}>{getGaranhaoNome(embriao.garanhaoId)}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.qualityInfo}>
+                    <View style={[styles.qualityBadge, { backgroundColor: getQualidadeColor(embriao.qualidadeEmbriao) }]}>
+                      <Text style={styles.qualityText}>{embriao.qualidadeEmbriao.toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.quantityText}>{embriao.numeroEmbrioes} embrião(ões)</Text>
+                  </View>
+
+                  {embriao.receptoraId && (
+                    <View style={styles.transferInfo}>
+                      <Text style={styles.transferLabel}>Transferido para:</Text>
+                      <Text style={styles.transferName}>{getReceptoraNome(embriao.receptoraId)}</Text>
+                      <Text style={styles.transferDate}>{embriao.dataTransferencia ? formatDate(embriao.dataTransferencia) : ''}</Text>
+                    </View>
+                  )}
+
+                  {embriao.statusEmbriao === 'congelado' && (
+                    <TouchableOpacity 
+                      style={styles.transferButton}
+                      onPress={() => {
+                        setSelectedEmbriao(embriao);
+                        setShowTransferModal(true);
+                      }}
+                    >
+                      <Feather name="arrow-right" size={16} color={Theme.colors.primary[600]} />
+                      <Text style={styles.transferButtonText}>Transferir</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+
+            {embrioes.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Feather name="database" size={48} color={Theme.colors.neutral[400]} />
+                <Text style={styles.emptyText}>Nenhum embrião registrado</Text>
+                <Text style={styles.emptySubtext}>Toque no botão + para registrar o primeiro embrião</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Modal de Criação */}
+      <Modal visible={showCreateModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Registrar Embrião</Text>
+            
+            <ScrollView style={styles.form}>
+              <Text style={styles.label}>Doadora *</Text>
+              <View style={styles.selectContainer}>
+                {doadoras.map((doadora) => (
+                  <TouchableOpacity
+                    key={doadora.id}
+                    style={[
+                      styles.selectOption,
+                      formData.doadoraId === doadora.id && styles.selectedOption
+                    ]}
+                    onPress={() => setFormData({ ...formData, doadoraId: doadora.id })}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.doadoraId === doadora.id && styles.selectedOptionText
+                    ]}>
+                      {doadora.nome}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Garanhão *</Text>
+              <View style={styles.selectContainer}>
+                {garanhoes.map((garanhao) => (
+                  <TouchableOpacity
+                    key={garanhao.id}
+                    style={[
+                      styles.selectOption,
+                      formData.garanhaoId === garanhao.id && styles.selectedOption
+                    ]}
+                    onPress={() => setFormData({ ...formData, garanhaoId: garanhao.id })}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.garanhaoId === garanhao.id && styles.selectedOptionText
+                    ]}>
+                      {garanhao.nome}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Data da Coleta</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.dataColeta}
+                onChangeText={(value) => setFormData({ ...formData, dataColeta: value })}
+                placeholder="YYYY-MM-DD"
+              />
+
+              <Text style={styles.label}>Qualidade do Embrião</Text>
+              <View style={styles.selectContainer}>
+                {[
+                  { value: 'grau1', label: 'Grau 1 - Excelente' },
+                  { value: 'grau2', label: 'Grau 2 - Bom' },
+                  { value: 'grau3', label: 'Grau 3 - Regular' },
+                  { value: 'grau4', label: 'Grau 4 - Ruim' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.selectOption,
+                      formData.qualidadeEmbriao === option.value && styles.selectedOption
+                    ]}
+                    onPress={() => setFormData({ ...formData, qualidadeEmbriao: option.value as any })}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      formData.qualidadeEmbriao === option.value && styles.selectedOptionText
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Número de Embriões</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.numeroEmbrioes.toString()}
+                onChangeText={(value) => setFormData({ ...formData, numeroEmbrioes: parseInt(value) || 1 })}
+                keyboardType="numeric"
+                placeholder="1"
+              />
+
+              <Text style={styles.label}>Responsável</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.responsavel}
+                onChangeText={(value) => setFormData({ ...formData, responsavel: value })}
+                placeholder="Nome do responsável"
+              />
+
+              <Text style={styles.label}>Observações</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.observacoes}
+                onChangeText={(value) => setFormData({ ...formData, observacoes: value })}
+                placeholder="Observações sobre a coleta"
+                multiline
+                numberOfLines={3}
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowCreateModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={handleCreateEmbriao}
+                disabled={loading}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {loading ? 'Salvando...' : 'Registrar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Transferência */}
+      <Modal visible={showTransferModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Transferir Embrião</Text>
+            
+            {selectedEmbriao && (
+              <View style={styles.selectedEmbriaoInfo}>
+                <Text style={styles.selectedEmbriaoText}>
+                  Embrião #{selectedEmbriao.id.slice(-6).toUpperCase()}
+                </Text>
+                <Text style={styles.selectedEmbriaoDetails}>
+                  {getDoadoraNome(selectedEmbriao.doadoraId)} × {getGaranhaoNome(selectedEmbriao.garanhaoId)}
+                </Text>
+              </View>
+            )}
+            
+            <View style={styles.form}>
+              <Text style={styles.label}>Receptora *</Text>
+              <View style={styles.selectContainer}>
+                {receptoras.filter(r => r.status === 'disponivel').map((receptora) => (
+                  <TouchableOpacity
+                    key={receptora.id}
+                    style={[
+                      styles.selectOption,
+                      transferData.receptoraId === receptora.id && styles.selectedOption
+                    ]}
+                    onPress={() => setTransferData({ ...transferData, receptoraId: receptora.id })}
+                  >
+                    <Text style={[
+                      styles.selectOptionText,
+                      transferData.receptoraId === receptora.id && styles.selectedOptionText
+                    ]}>
+                      {receptora.nome}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Data da Transferência</Text>
+              <TextInput
+                style={styles.input}
+                value={transferData.dataTransferencia}
+                onChangeText={(value) => setTransferData({ ...transferData, dataTransferencia: value })}
+                placeholder="YYYY-MM-DD"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowTransferModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={handleTransferEmbriao}
+                disabled={loading}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {loading ? 'Transferindo...' : 'Transferir'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.neutral[50],
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.md,
+    backgroundColor: Theme.colors.primary[50],
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.primary[100],
+  },
+  title: {
+    fontSize: Theme.typography.sizes.xl,
+    fontWeight: Theme.typography.weights.bold as any,
+    color: Theme.colors.primary[900],
+  },
+  addButton: {
+    backgroundColor: Theme.colors.primary[600],
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.full,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: Theme.spacing.lg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Theme.spacing.xl,
+  },
+  loadingText: {
+    fontSize: Theme.typography.sizes.lg,
+    color: Theme.colors.neutral[600],
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: Theme.typography.sizes.xl,
+    fontWeight: Theme.typography.weights.bold as any,
+    color: Theme.colors.neutral[800],
+  },
+  statLabel: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.neutral[600],
+    marginTop: 4,
+  },
+  embriaoCard: {
+    backgroundColor: Theme.colors.primary[50],
+    borderRadius: Theme.borderRadius.lg,
+    padding: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary[100],
+    marginBottom: Theme.spacing.md,
+  },
+  embriaoContent: {
+    gap: Theme.spacing.sm,
+  },
+  embriaoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  embriaoInfo: {
+    gap: 4,
+  },
+  embriaoId: {
+    fontSize: Theme.typography.sizes.lg,
+    fontWeight: Theme.typography.weights.bold as any,
+    color: Theme.colors.primary[900],
+  },
+  embriaoDate: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.neutral[600],
+  },
+  statusBadge: {
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Theme.borderRadius.full,
+  },
+  statusText: {
+    fontSize: Theme.typography.sizes.xs,
+    fontWeight: Theme.typography.weights.medium as any,
+    color: Theme.colors.primary[50],
+  },
+  parentInfo: {
+    flexDirection: 'row',
+    gap: Theme.spacing.md,
+  },
+  parent: {
+    flex: 1,
+    gap: 4,
+  },
+  parentLabel: {
+    fontSize: Theme.typography.sizes.xs,
+    color: Theme.colors.neutral[500],
+    textTransform: 'uppercase',
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  parentName: {
+    fontSize: Theme.typography.sizes.sm,
+    fontWeight: Theme.typography.weights.medium as any,
+    color: Theme.colors.neutral[800],
+  },
+  qualityInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  qualityBadge: {
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Theme.borderRadius.md,
+  },
+  qualityText: {
+    fontSize: Theme.typography.sizes.xs,
+    fontWeight: Theme.typography.weights.medium as any,
+    color: Theme.colors.primary[50],
+  },
+  quantityText: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.neutral[600],
+  },
+  transferInfo: {
+    backgroundColor: Theme.colors.success[50],
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.success[100],
+  },
+  transferLabel: {
+    fontSize: Theme.typography.sizes.xs,
+    color: Theme.colors.success[700],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  transferName: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.success[800],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  transferDate: {
+    fontSize: Theme.typography.sizes.xs,
+    color: Theme.colors.success[600],
+  },
+  transferButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: Theme.spacing.xs,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Theme.colors.primary[100],
+    borderRadius: Theme.borderRadius.md,
+  },
+  transferButtonText: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.primary[600],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    padding: Theme.spacing.xl,
+    gap: Theme.spacing.md,
+  },
+  emptyText: {
+    fontSize: Theme.typography.sizes.lg,
+    fontWeight: Theme.typography.weights.medium as any,
+    color: Theme.colors.neutral[600],
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.neutral[500],
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.primary[50],
+    borderRadius: Theme.borderRadius.lg,
+    padding: Theme.spacing.lg,
+    margin: Theme.spacing.lg,
+    maxHeight: '80%',
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: Theme.typography.sizes.xl,
+    fontWeight: Theme.typography.weights.bold as any,
+    color: Theme.colors.primary[900],
+    textAlign: 'center',
+    marginBottom: Theme.spacing.lg,
+  },
+  form: {
+    maxHeight: 400,
+  },
+  label: {
+    fontSize: Theme.typography.sizes.sm,
+    fontWeight: Theme.typography.weights.medium as any,
+    color: Theme.colors.neutral[700],
+    marginBottom: 4,
+    marginTop: Theme.spacing.sm,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: Theme.colors.neutral[300],
+    backgroundColor: Theme.colors.primary[50],
+    borderRadius: Theme.borderRadius.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    fontSize: Theme.typography.sizes.md,
+    color: Theme.colors.neutral[800],
+    marginBottom: Theme.spacing.sm,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  selectContainer: {
+    gap: Theme.spacing.xs,
+    marginBottom: Theme.spacing.sm,
+  },
+  selectOption: {
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.neutral[300],
+    backgroundColor: Theme.colors.primary[50],
+  },
+  selectedOption: {
+    backgroundColor: Theme.colors.primary[600],
+    borderColor: Theme.colors.primary[600],
+  },
+  selectOptionText: {
+    color: Theme.colors.neutral[800],
+    fontSize: Theme.typography.sizes.sm,
+  },
+  selectedOptionText: {
+    color: Theme.colors.primary[50],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.lg,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.neutral[200],
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: Theme.colors.neutral[700],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: Theme.colors.primary[600],
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: Theme.colors.primary[50],
+    fontWeight: Theme.typography.weights.medium as any,
+  },
+  selectedEmbriaoInfo: {
+    backgroundColor: Theme.colors.primary[100],
+    padding: Theme.spacing.md,
+    borderRadius: Theme.borderRadius.md,
+    marginBottom: Theme.spacing.md,
+  },
+  selectedEmbriaoText: {
+    fontSize: Theme.typography.sizes.md,
+    fontWeight: Theme.typography.weights.bold as any,
+    color: Theme.colors.primary[900],
+  },
+  selectedEmbriaoDetails: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Theme.colors.primary[700],
+    marginTop: 4,
+  },
+});
+
+export default EmbriaoScreen;

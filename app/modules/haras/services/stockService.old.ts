@@ -1,0 +1,332 @@
+import { apiClient } from '../../../../services/api';
+import { 
+  FeedStock, 
+  StockMovement, 
+  StockAlert, 
+  StockStats, 
+  CreateStockDTO, 
+  UpdateStockDTO, 
+  StockMovementDTO 
+} from '../types/stock';
+
+export interface ApiResponse<T> {
+  status: string;
+  message?: string;
+  data: T;
+}
+
+class StockService {
+  // Listar estoque do haras
+  async getStockByHaras(harasId: string): Promise<FeedStock[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<FeedStock[]>>(`/haras-pro/feed-stocks/haras/${harasId}`);
+      return response.data.data || [];
+    } catch (error: any) {
+      console.error('Erro ao buscar estoque:', error);
+      
+      // Se a API retornar 404, significa que os endpoints não estão implementados
+      if (error.response?.status === 404) {
+        console.warn('API de estoque não implementada no backend. Usando dados de exemplo.');
+        return this.getMockStockData(harasId);
+      }
+      
+      throw error;
+    }
+  }
+
+  // Obter estatísticas do estoque (calculadas a partir dos dados de estoque)
+  async getStockStats(harasId: string): Promise<StockStats> {
+    try {
+      // Como o backend não tem endpoint de stats, vamos calcular a partir dos dados
+      const stocks = await this.getStockByHaras(harasId);
+      return this.calculateStatsFromStock(stocks);
+    } catch (error: any) {
+      console.error('Erro ao buscar estatísticas do estoque:', error);
+      return this.getDefaultStats();
+    }
+  }
+
+  // Obter alertas de estoque baixo
+  async getStockAlerts(harasId: string): Promise<StockAlert[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<StockAlert[]>>(`/haras-pro/feed-stocks/haras/${harasId}/alerts/low-stock`);
+      return response.data.data || [];
+    } catch (error: any) {
+      console.error('Erro ao buscar alertas do estoque:', error);
+      
+      // Se a API retornar 404, usar alertas mock
+      if (error.response?.status === 404) {
+        console.warn('API de alertas não implementada. Usando dados de exemplo.');
+        const mockStock = this.getMockStockData(harasId);
+        return this.generateMockAlerts(mockStock);
+      }
+      
+      return [];
+    }
+  }
+
+  // Dados mock para desenvolvimento (temporário até backend implementar)
+  private getMockStockData(harasId: string): FeedStock[] {
+    return [
+      {
+        id: 'stock-1',
+        harasId: harasId,
+        feedType: 'hay',
+        brand: 'Fazenda São João',
+        name: 'Feno de Tifton Premium',
+        description: 'Feno de alta qualidade para cavalos',
+        currentQuantity: 150,
+        minimumThreshold: 50,
+        maximumCapacity: 500,
+        unit: 'kg',
+        costPerUnit: 2.50,
+        supplier: 'Fazenda São João',
+        lastRestockDate: '2024-12-20T10:00:00Z',
+        expirationDate: '2025-06-20T23:59:59Z',
+        storageLocation: 'Galpão A - Setor 1',
+        notes: 'Feno importado de alta qualidade',
+        isActive: true,
+        createdAt: '2024-11-01T10:00:00Z',
+        updatedAt: '2024-12-20T10:00:00Z'
+      },
+      {
+        id: 'stock-2',
+        harasId: harasId,
+        feedType: 'grain',
+        brand: 'Nutricav',
+        name: 'Ração Concentrada Performance',
+        description: 'Ração balanceada para cavalos de alta performance',
+        currentQuantity: 25,
+        minimumThreshold: 30,
+        maximumCapacity: 200,
+        unit: 'bags',
+        costPerUnit: 85.00,
+        supplier: 'Nutricav Alimentos',
+        lastRestockDate: '2024-12-15T14:30:00Z',
+        expirationDate: '2025-12-15T23:59:59Z',
+        storageLocation: 'Galpão B - Setor 2',
+        notes: 'Ração para cavalos de competição',
+        isActive: true,
+        createdAt: '2024-10-15T14:30:00Z',
+        updatedAt: '2024-12-15T14:30:00Z'
+      },
+      {
+        id: 'stock-3',
+        harasId: harasId,
+        feedType: 'supplement',
+        brand: 'Equitech',
+        name: 'Suplemento Vitamínico Plus',
+        description: 'Complexo vitamínico para fortalecimento',
+        currentQuantity: 12,
+        minimumThreshold: 15,
+        maximumCapacity: 50,
+        unit: 'kg',
+        costPerUnit: 45.00,
+        supplier: 'Equitech Suplementos',
+        lastRestockDate: '2024-12-10T09:00:00Z',
+        expirationDate: '2025-08-10T23:59:59Z',
+        storageLocation: 'Farmácia Veterinária',
+        notes: 'Administrar conforme orientação veterinária',
+        isActive: true,
+        createdAt: '2024-09-10T09:00:00Z',
+        updatedAt: '2024-12-10T09:00:00Z'
+      },
+      {
+        id: 'stock-4',
+        harasId: harasId,
+        feedType: 'concentrate',
+        brand: 'Purina',
+        name: 'Concentrado Equino Sport',
+        description: 'Concentrado energético para cavalos atletas',
+        currentQuantity: 80,
+        minimumThreshold: 40,
+        maximumCapacity: 300,
+        unit: 'kg',
+        costPerUnit: 3.20,
+        supplier: 'Purina Brasil',
+        lastRestockDate: '2024-12-18T16:00:00Z',
+        expirationDate: '2025-10-18T23:59:59Z',
+        storageLocation: 'Galpão A - Setor 3',
+        notes: 'Para cavalos em treinamento intenso',
+        isActive: true,
+        createdAt: '2024-11-18T16:00:00Z',
+        updatedAt: '2024-12-18T16:00:00Z'
+      }
+    ];
+  }
+
+  // Calcular estatísticas a partir dos dados mock
+  private calculateStatsFromStock(stocks: FeedStock[]): StockStats {
+    const totalValue = stocks.reduce((sum, stock) => sum + (stock.currentQuantity * stock.costPerUnit), 0);
+    const lowStockItems = stocks.filter(stock => stock.currentQuantity <= stock.minimumThreshold).length;
+    const expiredItems = stocks.filter(stock => 
+      stock.expirationDate && new Date(stock.expirationDate) < new Date()
+    ).length;
+    const nearExpiryItems = stocks.filter(stock => {
+      if (!stock.expirationDate) return false;
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return new Date(stock.expirationDate) <= thirtyDaysFromNow;
+    }).length;
+
+    const byCategory: { [key: string]: { count: number; value: number; quantity: number } } = {};
+    
+    stocks.forEach(stock => {
+      if (!byCategory[stock.feedType]) {
+        byCategory[stock.feedType] = { count: 0, value: 0, quantity: 0 };
+      }
+      byCategory[stock.feedType].count++;
+      byCategory[stock.feedType].value += stock.currentQuantity * stock.costPerUnit;
+      byCategory[stock.feedType].quantity += stock.currentQuantity;
+    });
+
+    return {
+      totalItems: stocks.length,
+      totalValue,
+      lowStockItems,
+      expiredItems,
+      nearExpiryItems,
+      byCategory
+    };
+  }
+
+  // Gerar alertas mock
+  private generateMockAlerts(stocks: FeedStock[]): StockAlert[] {
+    const alerts: StockAlert[] = [];
+    
+    stocks.forEach(stock => {
+      if (stock.currentQuantity <= stock.minimumThreshold) {
+        alerts.push({
+          id: `alert-low-${stock.id}`,
+          stockId: stock.id,
+          type: 'low_stock',
+          severity: stock.currentQuantity <= stock.minimumThreshold * 0.5 ? 'critical' : 'medium',
+          message: `${stock.name} está com estoque baixo (${stock.currentQuantity} ${stock.unit})`,
+          isResolved: false,
+          createdAt: new Date().toISOString()
+        });
+      }
+    });
+
+    return alerts;
+  }
+
+  // Estatísticas padrão
+  private getDefaultStats(): StockStats {
+    return {
+      totalItems: 0,
+      totalValue: 0,
+      lowStockItems: 0,
+      expiredItems: 0,
+      nearExpiryItems: 0,
+      byCategory: {}
+    };
+  }
+
+  // Buscar item do estoque por ID
+  async getStockById(harasId: string, stockId: string): Promise<FeedStock> {
+    try {
+      const response = await apiClient.get<ApiResponse<FeedStock>>(`/haras-pro/feed-stocks/haras/${harasId}/${stockId}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('Erro ao buscar item do estoque:', error);
+      throw error;
+    }
+  }
+
+  // Criar novo item no estoque
+  async createStock(harasId: string, stockData: CreateStockDTO): Promise<FeedStock> {
+    try {
+      const response = await apiClient.post<ApiResponse<FeedStock>>(`/haras-pro/feed-stocks/haras/${harasId}`, stockData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Erro ao criar item no estoque:', error);
+      throw error;
+    }
+  }
+
+  // Atualizar item do estoque
+  async updateStock(harasId: string, stockId: string, stockData: Partial<UpdateStockDTO>): Promise<FeedStock> {
+    try {
+      const response = await apiClient.put<ApiResponse<FeedStock>>(`/haras-pro/feed-stocks/haras/${harasId}/${stockId}`, stockData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Erro ao atualizar item do estoque:', error);
+      throw error;
+    }
+  }
+
+  // Remover item do estoque (não implementado no backend atualmente)
+  async deleteStock(harasId: string, stockId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/haras-pro/feed-stocks/haras/${harasId}/${stockId}`);
+    } catch (error: any) {
+      console.error('Erro ao excluir item do estoque:', error);
+      
+      // Se a API retornar 404, simular sucesso
+      if (error.response?.status === 404) {
+        console.warn('API de exclusão não implementada. Simulando sucesso.');
+        return;
+      }
+      
+      throw error;
+    }
+  }
+
+  // Registrar movimentação no estoque
+  async recordStockMovement(harasId: string, movementData: StockMovementDTO): Promise<StockMovement> {
+    try {
+      const response = await apiClient.post<ApiResponse<StockMovement>>(`/haras-pro/feed-stocks/haras/${harasId}/movements`, movementData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Erro ao registrar movimentação:', error);
+      throw error;
+    }
+  }
+
+  // Obter histórico de movimentações
+  async getStockMovements(harasId: string): Promise<StockMovement[]> {
+    try {
+      const response = await apiClient.get<ApiResponse<StockMovement[]>>(`/haras-pro/feed-stocks/haras/${harasId}/movements`);
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Erro ao buscar movimentações:', error);
+      throw error;
+    }
+  }
+
+  // Marcar alerta como resolvido (não implementado no backend)
+  async resolveAlert(alertId: string): Promise<void> {
+    try {
+      // Como não existe endpoint específico, usar log apenas
+      console.warn(`Alerta ${alertId} marcado como resolvido (não implementado no backend)`);
+    } catch (error: any) {
+      console.error('Erro ao resolver alerta:', error);
+      throw error;
+    }
+  }
+
+  // Obter tipos de ração disponíveis
+  getFeedTypes(): Array<{ value: FeedStock['feedType']; label: string; icon: string }> {
+    return [
+      { value: 'hay', label: 'Feno', icon: 'layers' },
+      { value: 'grain', label: 'Grãos', icon: 'grid' },
+      { value: 'supplement', label: 'Suplementos', icon: 'plus-circle' },
+      { value: 'concentrate', label: 'Concentrado', icon: 'box' },
+      { value: 'pellets', label: 'Pellets', icon: 'circle' },
+      { value: 'other', label: 'Outros', icon: 'more-horizontal' }
+    ];
+  }
+
+  // Obter unidades disponíveis
+  getUnits(): Array<{ value: FeedStock['unit']; label: string }> {
+    return [
+      { value: 'kg', label: 'Quilograma (kg)' },
+      { value: 'tons', label: 'Toneladas (t)' },
+      { value: 'bags', label: 'Sacos' },
+      { value: 'liters', label: 'Litros (L)' }
+    ];
+  }
+}
+
+export const stockService = new StockService();

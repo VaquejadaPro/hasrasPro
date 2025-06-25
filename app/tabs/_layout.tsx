@@ -9,11 +9,14 @@ export const unstable_settings = {
 };
 
 import { Stack } from "expo-router";
+import AuthWrapper from "../../components/AuthWrapper";
 
 export default function AppLayout() {
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <AuthWrapper>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </AuthWrapper>
   );
 }
