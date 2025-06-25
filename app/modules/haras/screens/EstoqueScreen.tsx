@@ -67,9 +67,18 @@ const EstoqueScreen: React.FC = () => {
 
       setStocks(stocksData);
       setAlerts(alertsData.filter((alert: StockAlert) => !alert.isResolved));
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao carregar dados do estoque:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os dados do estoque.');
+      
+      const isApiError = error.message?.includes('API Backend não encontrada') || 
+                        error.response?.status === 404;
+      
+      Alert.alert(
+        isApiError ? 'Backend Não Encontrado' : 'Erro de Conexão',
+        isApiError 
+          ? 'O servidor backend não está rodando na porta 3000.\n\nConsulte o arquivo CONFIGURACAO_BACKEND.md para instruções de como configurar o backend.'
+          : 'Não foi possível carregar os dados do estoque. Verifique sua conexão e tente novamente.'
+      );
     } finally {
       setLoading(false);
     }

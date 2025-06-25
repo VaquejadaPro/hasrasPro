@@ -8,7 +8,7 @@ import Theme from '../../constants/Theme';
 
 export default function Reproducao() {
   const { user, signIn, loading } = useAuth();
-  const { haras, loading: harasLoading, error: harasError } = useHaras();
+  const { harasList, selectedHaras, loading: harasLoading, error: harasError, loadHaras, selectHaras } = useHaras();
   const [initializing, setInitializing] = useState(true);
   const searchParams = useLocalSearchParams();
   
@@ -33,6 +33,22 @@ export default function Reproducao() {
       initializeAuth();
     }
   }, [user, loading, signIn]);
+
+  // Carregar haras quando o usuário estiver autenticado
+  useEffect(() => {
+    if (user && !harasLoading && harasList.length === 0 && !harasError) {
+      console.log('🔍 Carregando haras para usuário autenticado...');
+      loadHaras();
+    }
+  }, [user, harasLoading, harasList.length, harasError, loadHaras]);
+
+  // Selecionar o primeiro haras automaticamente
+  useEffect(() => {
+    if (harasList.length > 0 && !selectedHaras) {
+      console.log('🎯 Selecionando primeiro haras automaticamente:', harasList[0].name);
+      selectHaras(harasList[0]);
+    }
+  }, [harasList, selectedHaras, selectHaras]);
 
   // Mostrar loading durante inicialização ou carregamento do haras
   if (loading || initializing || harasLoading) {
@@ -60,18 +76,41 @@ export default function Reproducao() {
   }
 
   // Se não conseguiu carregar haras
-  if (harasError || !haras) {
+  if (harasError || (harasList.length === 0 && !harasLoading && !initializing)) {
+    const isApiError = harasError?.includes('API Backend não encontrada');
+    
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Erro ao carregar haras</Text>
+        <Text style={styles.errorTitle}>
+          {isApiError ? '🚨 Backend Não Encontrado' : 'Erro ao carregar haras'}
+        </Text>
         <Text style={styles.errorText}>
-          {harasError || 'Nenhum haras encontrado para este usuário'}
+          {isApiError ? (
+            'O servidor backend não está rodando na porta 3000.\n\n' +
+            'Para resolver este problema:\n' +
+            '1. Inicie o servidor backend\n' +
+            '2. Verifique se está rodando na porta 3000\n' +
+            '3. Consulte a documentação do projeto\n\n' +
+            'Comando típico: npm run server'
+          ) : (
+            harasError || 'Nenhum haras encontrado para este usuário'
+          )}
         </Text>
       </View>
     );
   }
 
-  return <HarasMainScreen harasId={haras.id} telaInicial={telaInicial} />;
+  // Se ainda não selecionou um haras
+  if (!selectedHaras) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8b5cf6" />
+        <Text style={styles.loadingText}>Configurando haras...</Text>
+      </View>
+    );
+  }
+
+  return <HarasMainScreen harasId={selectedHaras.id} telaInicial={telaInicial} />;
 }
 
 const styles = StyleSheet.create({

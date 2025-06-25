@@ -16,13 +16,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { veterinaryService, VeterinaryStock, VeterinaryAlert } from '../services/veterinaryService';
 import Theme from '@/constants/Theme';
-                  <Text style={[styles.alertText, { color: Theme.colors.warning[500] }]}>TextInput,
-} from 'react-native';
-import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { veterinaryService, VeterinaryStock, VeterinaryAlert } from '../services/veterinaryService';
-import Theme from '@/constants/Theme';
 
 const EstoqueVeterinarioScreen: React.FC = () => {
   const router = useRouter();
@@ -190,17 +183,17 @@ const EstoqueVeterinarioScreen: React.FC = () => {
           {(isLowStock || isExpired) && (
             <View style={styles.alertSection}>
               {isExpired && (
-                <View style={[styles.alertBadge, { backgroundColor: Theme.colors.error.light }]}>
-                  <Feather name="alert-triangle" size={14} color={Theme.colors.error.main} />
-                  <Text style={[styles.alertText, { color: Theme.colors.error.main }]}>
+                <View style={[styles.alertBadge, { backgroundColor: Theme.colors.error[100] }]}>
+                  <Feather name="alert-triangle" size={14} color={Theme.colors.error[500]} />
+                  <Text style={[styles.alertText, { color: Theme.colors.error[500] }]}>
                     Vencido
                   </Text>
                 </View>
               )}
               {isLowStock && !isExpired && (
-                <View style={[styles.alertBadge, { backgroundColor: Theme.colors.warning.light }]}>
-                  <Feather name="alert-circle" size={14} color={Theme.colors.warning.main} />
-                  <Text style={[styles.alertText, { color: Theme.colors.warning.main }]}>
+                <View style={[styles.alertBadge, { backgroundColor: Theme.colors.warning[100] }]}>
+                  <Feather name="alert-circle" size={14} color={Theme.colors.warning[500]} />
+                  <Text style={[styles.alertText, { color: Theme.colors.warning[500] }]}>
                     Estoque baixo
                   </Text>
                 </View>
@@ -216,9 +209,9 @@ const EstoqueVeterinarioScreen: React.FC = () => {
   const renderAlertCard = (alert: VeterinaryAlert, index: number) => {
     const getAlertColor = () => {
       switch (alert.severity) {
-        case 'critical': return Theme.colors.error.main;
-        case 'high': return Theme.colors.warning.main;
-        case 'medium': return Theme.colors.info.main;
+        case 'critical': return Theme.colors.error[500];
+        case 'high': return Theme.colors.warning[500];
+        case 'medium': return Theme.colors.primary[500];
         default: return Theme.colors.neutral[400];
       }
     };
