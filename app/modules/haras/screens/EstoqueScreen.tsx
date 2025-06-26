@@ -18,7 +18,11 @@ import { useRouter } from 'expo-router';
 import { stockService } from '../services/stockService';
 import { veterinaryService } from '../services/veterinaryService';
 import { FeedStock, StockAlert } from '../types/stock';
-import { Medicine, VeterinaryStock, VeterinaryAlert } from '../types/veterinary';
+import { 
+  Medicine, 
+  VeterinaryStock, 
+  VeterinaryAlert 
+} from '../services/veterinaryService';
 import { StockCard, StockAlertCard } from '../components/stock';
 import Theme from '@/constants/Theme';
 
@@ -40,7 +44,7 @@ const EstoqueScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'low' | 'expired'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'low' | 'expired' | 'prescription'>('all');
 
   // Estados para modais de entrada
   const [showQuantityModal, setShowQuantityModal] = useState(false);
@@ -57,16 +61,39 @@ const EstoqueScreen: React.FC = () => {
       setLoading(true);
       console.log('🔄 Carregando dados do estoque para haras:', harasId);
       
-      const [stocksData, alertsData] = await Promise.all([
+      // Carregar dados de ração e farmácia em paralelo
+      const [
+        stocksData, 
+        alertsData, 
+        medicinesData, 
+        veterinaryStocksData, 
+        veterinaryAlertsData
+      ] = await Promise.all([
         stockService.getStockByHaras(harasId),
-        stockService.getStockAlerts(harasId)
+        stockService.getStockAlerts(harasId),
+        veterinaryService.getMedicinesByHaras(harasId),
+        veterinaryService.getVeterinaryStocksByHaras(harasId),
+        veterinaryService.getLowStockAlerts(harasId)
       ]);
 
       console.log('✅ Dados do estoque carregados:', stocksData.length, 'itens');
+      if (stocksData.length > 0) {
+        console.log('📋 Primeiro item do estoque:', JSON.stringify(stocksData[0], null, 2));
+        console.log('📋 Nomes dos primeiros 3 itens:', stocksData.slice(0, 3).map(s => ({ id: s.id, name: s.name, brand: s.brand })));
+      }
       console.log('✅ Alertas carregados:', alertsData.length, 'alertas');
+      console.log('✅ Medicamentos carregados:', medicinesData.length, 'itens');
+      console.log('✅ Estoque veterinário carregado:', veterinaryStocksData.length, 'itens');
+      console.log('✅ Alertas veterinários carregados:', veterinaryAlertsData.length, 'alertas');
 
+      // Atualizar estados de ração
       setStocks(stocksData);
       setAlerts(alertsData.filter((alert: StockAlert) => !alert.isResolved));
+      
+      // Atualizar estados de farmácia
+      setMedicines(medicinesData);
+      setVeterinaryStocks(veterinaryStocksData);
+      setVeterinaryAlerts(veterinaryAlertsData.filter((alert: VeterinaryAlert) => !alert.isResolved));
     } catch (error: any) {
       console.error('❌ Erro ao carregar dados do estoque:', error);
       
@@ -98,8 +125,8 @@ const EstoqueScreen: React.FC = () => {
 
   // Filtrar stocks por busca e tipo
   const filteredStocks = stocks.filter(stock => {
-    const matchesSearch = stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         stock.brand.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (stock.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (stock.brand || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     if (!matchesSearch) return false;
     
@@ -108,9 +135,58 @@ const EstoqueScreen: React.FC = () => {
         return stock.currentQuantity <= stock.minimumThreshold;
       case 'expired':
         return stock.expirationDate && new Date(stock.expirationDate) < new Date();
+      case 'prescription':
+        // Para ração, não há receita obrigatória, então retorna false
+        return false;
       default:
         return true;
     }
+  });
+
+  // Filtrar medicamentos por busca
+  const filteredMedicines = medicines.filter(medicine => {
+    const matchesSearch = (medicine.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (medicine.manufacturer || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (medicine.activeIngredient || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Filtrar por tipo apenas se não for 'all'
+    if (filterType === 'prescription') {
+      return medicine.prescriptionRequired === true;
+    }
+    
+    return true;
+  });
+
+  // Filtrar stocks veterinários por busca e tipo
+  const filteredVeterinaryStocks = veterinaryStocks.filter(stock => {
+    const matchesSearch = (stock.medicine?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (stock.medicine?.manufacturer || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (stock.batchNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    switch (filterType) {
+      case 'low':
+        return stock.currentQuantity <= stock.minimumThreshold;
+      case 'expired':
+        return stock.expirationDate && new Date(stock.expirationDate) < new Date();
+      case 'prescription':
+        return stock.medicine?.prescriptionRequired === true;
+      default:
+        return true;
+    }
+  });
+
+  // Combinar medicamentos com seus estoques para exibição
+  const combinedMedicineData = filteredMedicines.map(medicine => {
+    const stocksForMedicine = filteredVeterinaryStocks.filter(stock => stock.medicineId === medicine.id);
+    return {
+      medicine,
+      stocks: stocksForMedicine,
+      hasStock: stocksForMedicine.length > 0
+    };
   });
 
   // Consumir estoque
@@ -319,6 +395,17 @@ const EstoqueScreen: React.FC = () => {
               Vencidos
             </Text>
           </TouchableOpacity>
+          {/* Filtro Receita Obrigatória apenas na aba farmácia */}
+          {activeTab === 'farmacia' && (
+            <TouchableOpacity
+              style={[styles.filterButton, filterType === 'prescription' && styles.filterButtonActive]}
+              onPress={() => setFilterType('prescription')}
+            >
+              <Text style={[styles.filterText, filterType === 'prescription' && styles.filterButtonTextActive]}>
+                Receita Obrigatória
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
 
@@ -391,37 +478,6 @@ const EstoqueScreen: React.FC = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Filtros Farmácia */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={{paddingHorizontal: 20, marginBottom: 8}}
-            contentContainerStyle={{gap: 12}}
-          >
-            {[
-              { key: 'all', label: 'Todos' },
-              { key: 'low', label: 'Estoque Baixo' },
-              { key: 'expired', label: 'Vencidos' },
-              { key: 'prescription', label: 'Receita Obrigatória' },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.key}
-                style={[
-                  styles.filterButton,
-                  filterType === filter.key && styles.filterButtonActive
-                ]}
-                onPress={() => setFilterType(filter.key as any)}
-              >
-                <Text style={[
-                  styles.filterButtonText,
-                  filterType === filter.key && styles.filterButtonTextActive
-                ]}>
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
           {/* Alertas Farmácia */}
           {veterinaryAlerts.length > 0 && (
             <View style={styles.section}>
@@ -448,10 +504,10 @@ const EstoqueScreen: React.FC = () => {
             <View style={styles.sectionHeader}>
               <Feather name="package" size={20} color={Theme.colors.primary[600]} />
               <Text style={styles.sectionTitle}>
-                Medicamentos {filterType !== 'all' && `(${veterinaryStocks.length})`}
+                Medicamentos ({combinedMedicineData.length})
               </Text>
             </View>
-            {veterinaryStocks.length === 0 ? (
+            {combinedMedicineData.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Feather name="package" size={48} color={Theme.colors.neutral[400]} />
                 <Text style={styles.emptyText}>
@@ -462,8 +518,8 @@ const EstoqueScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              veterinaryStocks.map((stock) => (
-                <View key={stock.id} style={styles.stockCard}>
+              combinedMedicineData.map((item) => (
+                <View key={item.medicine.id} style={styles.stockCard}>
                   <LinearGradient
                     colors={["#ffffff", Theme.colors.neutral[50]]}
                     style={styles.stockCardGradient}
@@ -474,44 +530,50 @@ const EstoqueScreen: React.FC = () => {
                           <Feather name="package" size={20} color={Theme.colors.primary[600]} />
                         </View>
                         <View style={styles.medicineDetails}>
-                          <Text style={styles.medicineName}>{stock.medicine?.name || 'Medicamento'}</Text>
-                          <Text style={styles.medicineManufacturer}>{stock.medicine?.manufacturer}</Text>
-                          <Text style={styles.batchNumber}>Lote: {stock.lotNumber}</Text>
+                          <Text style={styles.medicineName}>{item.medicine.name}</Text>
+                          <Text style={styles.medicineManufacturer}>{item.medicine.manufacturer || 'Fabricante não informado'}</Text>
+                          <Text style={styles.batchNumber}>Princípio ativo: {item.medicine.activeIngredient}</Text>
                         </View>
                       </View>
-                      {stock.medicine?.prescriptionRequired && (
-                        <View style={styles.prescriptionBadge}>
-                          <Feather name="file-text" size={12} color={Theme.colors.warning[500]} />
-                          <Text style={styles.prescriptionText}>Receita</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.quantitySection}>
-                      <View style={styles.quantityItem}>
-                        <Text style={styles.quantityLabel}>Atual</Text>
-                        <Text style={styles.quantityValue}>{stock.quantity}</Text>
-                      </View>
-                      <View style={styles.quantityItem}>
-                        <Text style={styles.quantityLabel}>Mínimo</Text>
-                        <Text style={styles.quantityValue}>{stock.minimumQuantity}</Text>
-                      </View>
-                      <View style={styles.quantityItem}>
-                        <Text style={styles.quantityLabel}>Valor Unit.</Text>
-                        <Text style={styles.quantityValue}>R$ {stock.costPerUnit?.toFixed(2)}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.additionalInfo}>
-                      <View style={styles.infoRow}>
-                        <Feather name="calendar" size={16} color={Theme.colors.neutral[500]} />
-                        <Text style={styles.infoText}>
-                          Validade: {stock.expirationDate ? new Date(stock.expirationDate).toLocaleDateString('pt-BR') : '-'}
+                      <View style={styles.quantitySection}>
+                        <Text style={styles.quantityValue}>
+                          {item.medicine.type === 'antibiotic' ? 'Antibiótico' :
+                           item.medicine.type === 'anti-inflammatory' ? 'Anti-inflamatório' :
+                           item.medicine.type === 'vaccine' ? 'Vacina' :
+                           item.medicine.type === 'supplement' ? 'Suplemento' :
+                           'Outros'}
                         </Text>
                       </View>
-                      <View style={styles.infoRow}>
-                        <Feather name="map-pin" size={16} color={Theme.colors.neutral[500]} />
-                        <Text style={styles.infoText}>Local: {stock.location || '-'}</Text>
-                      </View>
                     </View>
+
+                    {/* Mostrar estoques do medicamento */}
+                    {item.hasStock ? (
+                      <View style={styles.additionalInfo}>
+                        <Text style={styles.infoText}>📦 Estoques Disponíveis:</Text>
+                        {item.stocks.map((stock) => (
+                          <View key={stock.id} style={styles.infoRow}>
+                            <View>
+                              <Text style={styles.infoText}>Lote: {stock.batchNumber || 'N/A'}</Text>
+                              <Text style={styles.infoText}>
+                                Qtd: {stock.currentQuantity || 0} / {stock.maximumCapacity || 0}
+                              </Text>
+                              <Text style={styles.infoText}>Local: {stock.storageLocation || 'N/A'}</Text>
+                            </View>
+                            <View>
+                              <Text style={styles.infoText}>R$ {(stock.unitCost || 0).toFixed(2)}</Text>
+                              <Text style={styles.infoText}>
+                                Val: {stock.expirationDate ? new Date(stock.expirationDate).toLocaleDateString('pt-BR') : 'N/A'}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <View style={styles.infoRow}>
+                        <Feather name="alert-circle" size={16} color={Theme.colors.warning[500]} />
+                        <Text style={styles.infoText}>Sem estoque cadastrado</Text>
+                      </View>
+                    )}
                   </LinearGradient>
                 </View>
               ))

@@ -69,3 +69,11 @@ export interface StockMovementDTO {
   reason: string;
   notes?: string;
 }
+
+export interface StockStats {
+  totalItems: number;
+  lowStockItems: number;
+  expiredItems: number;
+  totalValue: number;
+  averageDaysToExpiry: number;
+}

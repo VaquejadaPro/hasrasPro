@@ -2,13 +2,54 @@ import React from "react";
 import { Feather } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
+import { Platform, View } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import Theme from "../../constants/Theme";
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof Feather>["name"];
   color: string;
+  focused?: boolean;
 }) {
-  return <Feather size={20} style={{ marginBottom: -3 }} {...props} />;
+  if (props.focused) {
+    return (
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <LinearGradient
+          colors={[Theme.colors.primary[500], Theme.colors.primary[600]]}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: Theme.colors.primary[600],
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.2,
+            shadowRadius: 2,
+            elevation: 3,
+          }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Feather 
+            name={props.name} 
+            size={18} 
+            color="#FFFFFF"
+          />
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Feather 
+        name={props.name} 
+        size={16} 
+        color={props.color}
+      />
+    </View>
+  );
 }
 
 export default function TabLayout() {
@@ -17,26 +58,54 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: useClientOnlyValue(false, true),
         tabBarActiveTintColor: Theme.colors.primary[600],
-        tabBarInactiveTintColor: Theme.colors.neutral[400],
+        tabBarInactiveTintColor: Theme.colors.neutral[500],
         tabBarStyle: {
-          backgroundColor: Theme.colors.primary[50],
-          borderTopColor: Theme.colors.neutral[200],
-          borderTopWidth: 1,
-          paddingTop: 8,
-          paddingBottom: 8,
-          height: 70,
+          backgroundColor: '#FFFFFF',
+          borderTopColor: Theme.colors.primary[100],
+          borderTopWidth: 0.5,
+          paddingTop: Platform.OS === 'ios' ? 8 : 6,
+          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+          paddingHorizontal: 2,
+          height: Platform.OS === 'ios' ? 85 : 72,
+          shadowColor: Theme.colors.primary[600],
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-          marginTop: 4,
+          fontSize: 9,
+          fontWeight: '600',
+          marginTop: 2,
+          marginBottom: 1,
+          textTransform: 'none',
+          letterSpacing: 0.1,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
+          paddingHorizontal: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          flex: 1,
         },
         headerStyle: {
           backgroundColor: Theme.colors.primary[600],
+          shadowColor: Theme.colors.primary[600],
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          elevation: 6,
         },
-        headerTintColor: Theme.colors.primary[50],
+        headerTintColor: '#FFFFFF',
         headerTitleStyle: {
-          fontWeight: '600',
+          fontWeight: '700',
+          fontSize: 18,
         },
       }}
     >
@@ -44,7 +113,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="home" color={color} focused={focused} />,
         }}
       />
 
@@ -52,7 +121,7 @@ export default function TabLayout() {
         name="baias"
         options={{
           title: "Baias",
-          tabBarIcon: ({ color }) => <TabBarIcon name="grid" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="grid" color={color} focused={focused} />,
         }}
       />
 
@@ -60,7 +129,7 @@ export default function TabLayout() {
         name="cavalos"
         options={{
           title: "Cavalos",
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="users" color={color} focused={focused} />,
         }}
       />
 
@@ -68,31 +137,23 @@ export default function TabLayout() {
         name="tratador"
         options={{
           title: "Limpeza",
-          tabBarIcon: ({ color }) => <TabBarIcon name="droplet" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="shield" color={color} focused={focused} />,
         }}
       />
 
       <Tabs.Screen
         name="reproducao"
         options={{
-          title: "Reprodução",
-          tabBarIcon: ({ color }) => <TabBarIcon name="heart" color={color} />,
+          title: "Cria",
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="heart" color={color} focused={focused} />,
         }}
       />
 
       <Tabs.Screen
         name="relatorios"
         options={{
-          title: "Relatórios",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart-2" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: "Perfil",
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          title: "Dados",
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="bar-chart-2" color={color} focused={focused} />,
         }}
       />
 
@@ -100,23 +161,23 @@ export default function TabLayout() {
         name="estoque"
         options={{
           title: "Estoque",
-          tabBarIcon: ({ color }) => <TabBarIcon name="package" color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="veterinario"
-        options={{
-          title: "Veterinário",
-          tabBarIcon: ({ color }) => <TabBarIcon name="plus-square" color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="package" color={color} focused={focused} />,
         }}
       />
 
       <Tabs.Screen
         name="embrioes"
         options={{
-          title: "Embriões",
-          tabBarIcon: ({ color }) => <TabBarIcon name="zap" color={color} />,
+          title: "TE",
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="zap" color={color} focused={focused} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="perfil"
+        options={{
+          title: "Perfil",
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="user" color={color} focused={focused} />,
         }}
       />
 

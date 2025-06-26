@@ -15,10 +15,23 @@ class StockService {
     try {
       console.log('📦 Chamando API de estoque para haras:', harasId);
       const response = await apiClient.get<ApiResponse<FeedStock[]>>(`/haras-pro/feed-stocks/haras/${harasId}`);
-      console.log('📦 Resposta da API de estoque:', response.data);
+      console.log('📦 Resposta COMPLETA da API de estoque:', JSON.stringify(response.data, null, 2));
       
       if (response.data.success && response.data.data) {
         console.log('✅ Estoque carregado com sucesso:', response.data.data.length, 'itens');
+        
+        // Log detalhado dos primeiros itens para debug
+        if (response.data.data.length > 0) {
+          console.log('🔍 PRIMEIRO ITEM COMPLETO DA API:', JSON.stringify(response.data.data[0], null, 2));
+          console.log('🔍 ESTRUTURA DO PRIMEIRO ITEM:', {
+            id: response.data.data[0].id,
+            name: response.data.data[0].name,
+            brand: response.data.data[0].brand,
+            feedType: response.data.data[0].feedType,
+            keys: Object.keys(response.data.data[0])
+          });
+        }
+        
         return response.data.data;
       }
       throw new Error('Erro ao carregar estoque');

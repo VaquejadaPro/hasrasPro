@@ -132,7 +132,7 @@ export interface StockMovementDTO {
 }
 
 class VeterinaryService {
-  private baseUrl = '/api/veterinary';
+  private baseUrl = '/haras-pro/veterinary';
 
   // ========== MEDICAMENTOS ==========
   async createMedicine(data: CreateMedicineDTO): Promise<Medicine> {
